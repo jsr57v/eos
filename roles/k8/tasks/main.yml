@@ -1,0 +1,44 @@
+# tasks file
+- name: Create a k8s namespace
+  k8s:
+    name: "eos-{{ item }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+
+- name: Define replicas max
+  shell: if [ '{{item}}' -lt '{{max}}' ] || [ '{{max}}' -eq 0 ]; then echo '{{item}}';else echo '{{max}}'; fi
+  register: result
+  
+- debug:
+    var: result
+
+- name: Passing the object deployment definition
+  kubernetes.core.k8s:
+    state: present
+    template:
+      path: './roles/k8/template/deployment.j2'
+
+- name: Output list pod
+  shell: kubectl get pods --no-headers -o custom-columns=":metadata.name" -n "eos-{{ item }}" >> ./list_pod.out
+  register: pod_list
+
+- debug:
+    var: pod_list
+
+- name: create a Service for Hello Go.
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: hello-go
+        namespace: "eos-{{ item }}"
+      spec:
+        type: LoadBalancer
+        ports:
+        - port: 8181
+          targetPort: 8181
+        selector:
+          app: hello-go
